@@ -1,0 +1,37 @@
+appId: com.cardfriendfinder.tienlen
+productName: Tiến lên
+directories:
+  buildResources: resources
+  output: dist
+files:
+  - out/**
+  - package.json
+  - resources/**
+  - '!**/*.map'
+asarUnpack:
+  - resources/**
+  - node_modules/steamworks.js/**
+extraResources:
+  # Drop steam_appid.txt next to the executable for local Steam testing.
+  # Replace 480 (Spacewar, Valve's public test app) with your own App ID.
+  - from: resources/steam_appid.txt
+    to: ../steam_appid.txt
+win:
+  target:
+    - nsis
+    - dir
+  artifactName: ${name}-${version}-setup.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target:
+    - dmg
+    - dir
+  category: public.app-category.card-games
+linux:
+  target:
+    - AppImage
+    - dir
+  category: Game
+npmRebuild: true
