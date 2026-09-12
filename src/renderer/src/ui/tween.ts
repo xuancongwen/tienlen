@@ -1,4 +1,4 @@
-import type { Ticker } from 'pixi.js'
+import type { Container, Ticker } from 'pixi.js'
 
 type Ease = (t: number) => number
 
@@ -110,4 +110,13 @@ export class Tweens {
 
 export function wait(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
+}
+
+/** Fades a container in while it settles down from a slight upward offset — a cheap "arrival" flourish for panels that would otherwise just pop in. */
+export function riseIn(tweens: Tweens, view: Container, opts: { dy?: number; duration?: number; delay?: number } = {}): void {
+  const dy = opts.dy ?? 16
+  const targetY = view.y
+  view.y = targetY + dy
+  view.alpha = 0
+  void tweens.to(view, { y: targetY, alpha: 1 }, opts.duration ?? 300, { ease: ease.outCubic, delay: opts.delay ?? 0 })
 }

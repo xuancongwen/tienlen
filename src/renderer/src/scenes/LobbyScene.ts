@@ -3,6 +3,7 @@ import type { BotLevel, Seat } from '@engine/game'
 import type { App, Scene } from '../app'
 import { Backdrop } from '../gfx/backdrop'
 import { C, FONT, SEAT_COLORS } from '../theme'
+import { riseIn } from '../ui/tween'
 import { Button, Cycler, Toggle, heading, label, panel } from '../ui/widgets'
 import type { Session } from '../session'
 import { GameScene } from './GameScene'
@@ -31,6 +32,7 @@ export class LobbyScene implements Scene {
   private copyBtn: Button | null = null
   private unsub: (() => void)[] = []
   private started = false
+  private entered = false
 
   constructor(
     private app: App,
@@ -124,7 +126,7 @@ export class LobbyScene implements Scene {
   private refresh(): void {
     const client = this.session.client
     const lobby = client.lobby
-    this.seatsC.removeChildren()
+    for (const c of this.seatsC.removeChildren()) c.destroy({ children: true })
     if (!lobby) {
       this.info.text = client.connected ? 'Connecting…' : `Disconnected: ${client.closeReason}`
       return
@@ -217,6 +219,10 @@ export class LobbyScene implements Scene {
       this.copyBtn.position.set(x, by - 50)
     }
     this.startBtn.position.set(pw - 250, by)
+    if (!this.entered) {
+      this.entered = true
+      riseIn(this.app.tweens, this.card)
+    }
   }
 
   destroy(): void {

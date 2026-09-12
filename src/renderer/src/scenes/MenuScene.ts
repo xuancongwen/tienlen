@@ -4,6 +4,7 @@ import { Backdrop } from '../gfx/backdrop'
 import { parseCard } from '@engine/cards'
 import { CardSprite } from '../gfx/cards'
 import { C, FONT } from '../theme'
+import { ease } from '../ui/tween'
 import { Button, label } from '../ui/widgets'
 import { createSolo } from '../session'
 import { LobbyScene } from './LobbyScene'
@@ -20,6 +21,7 @@ export class MenuScene implements Scene {
   private cards = new Container()
   private tag: Text
   private t = 0
+  private entered = false
 
   constructor(private app: App) {
     this.view.addChild(this.backdrop, this.cards, this.panelC)
@@ -85,6 +87,37 @@ export class MenuScene implements Scene {
     this.cards.children.forEach((c, i) => {
       c.position.set((i - 2) * 46, Math.abs(i - 2) * 10)
     })
+    if (!this.entered) {
+      this.entered = true
+      this.playEntrance()
+    }
+  }
+
+  /** First-impression flourish: title drops in, buttons stagger up, the fan of cards slides in from off-screen. */
+  private playEntrance(): void {
+    const tw = this.app.tweens
+    const titleY = this.title.y
+    this.title.y = titleY - 26
+    this.title.alpha = 0
+    void tw.to(this.title, { y: titleY, alpha: 1 }, 460, { ease: ease.outCubic })
+
+    this.subtitle.alpha = 0
+    void tw.to(this.subtitle, { alpha: 1 }, 420, { delay: 120 })
+
+    this.buttons.forEach((b, i) => {
+      const by = b.y
+      b.y = by + 22
+      b.alpha = 0
+      void tw.to(b, { y: by, alpha: 1 }, 380, { delay: 160 + i * 70, ease: ease.outCubic })
+    })
+
+    this.tag.alpha = 0
+    void tw.to(this.tag, { alpha: 1 }, 400, { delay: 160 + this.buttons.length * 70 + 80 })
+
+    const cx = this.cards.x
+    this.cards.x = cx + 160
+    this.cards.alpha = 0
+    void tw.to(this.cards, { x: cx, alpha: 1 }, 520, { delay: 140, ease: ease.outBack })
   }
 
   update(dt: number): void {

@@ -1,7 +1,7 @@
 import { Application, Container } from 'pixi.js'
 import { C } from './theme'
 import { Toast } from './ui/widgets'
-import { Tweens } from './ui/tween'
+import { ease, Tweens } from './ui/tween'
 import type { Settings } from './settings'
 import { saveSettings } from './settings'
 import type { Session } from './session'
@@ -48,15 +48,28 @@ export class App {
     return this.pixi.screen.height
   }
 
+  /** The scene currently navigated to — lets an outgoing scene tell it's mid-fade-out and ignore stray input (e.g. a global keydown listener) until its deferred destroy() runs. */
+  get current(): Scene | null {
+    return this.scene
+  }
+
+  /** Swaps the active scene with a soft cross-fade instead of a hard cut. */
   go(scene: Scene): void {
-    if (this.scene) {
-      this.tweens.killAll()
-      this.root.removeChild(this.scene.view)
-      this.scene.destroy()
-    }
+    const prev = this.scene
     this.scene = scene
+    scene.view.alpha = 0
     this.root.addChild(scene.view)
     scene.resize(this.width, this.height)
+    void this.tweens.to(scene.view, { alpha: 1 }, 220, { ease: ease.outCubic })
+    if (prev) {
+      // Interactivity is cut immediately so the outgoing scene can't absorb clicks while it fades;
+      // the Pixi teardown (destroy) waits for the fade so it doesn't just vanish mid-transition.
+      prev.view.eventMode = 'none'
+      void this.tweens.to(prev.view, { alpha: 0 }, 140, { ease: ease.outCubic }).then(() => {
+        this.root.removeChild(prev.view)
+        prev.destroy()
+      })
+    }
   }
 
   layout(): void {

@@ -28,6 +28,7 @@ export class GameScene implements Scene {
   private overlayLayer = new Container()
   private handSprites = new Map<number, CardSprite>()
   private selected = new Set<number>()
+  private hoverId: number | null = null
   private w = 0
   private h = 0
   private mySeat: Seat
@@ -39,6 +40,7 @@ export class GameScene implements Scene {
   private roundBig!: Text
   private roundSub!: Text
   private logText!: Text
+  private logPanel!: Container
   private banner = new Container()
   private bannerText!: Text
   private comboLabel!: Text
@@ -72,6 +74,12 @@ export class GameScene implements Scene {
     )
     window.addEventListener('keydown', this.onKey)
     this.render()
+
+    // Table settles in first, then the HUD and seat plaques ease in on top of it.
+    this.plaqueLayer.alpha = 0
+    this.hudLayer.alpha = 0
+    void this.app.tweens.to(this.plaqueLayer, { alpha: 1 }, 320, { delay: 120, ease: ease.outCubic })
+    void this.app.tweens.to(this.hudLayer, { alpha: 1 }, 320, { delay: 200, ease: ease.outCubic })
   }
 
   private get client() {
@@ -103,8 +111,9 @@ export class GameScene implements Scene {
     this.roundPanel.addChild(bg, this.roundBig, this.roundSub)
     this.hudLayer.addChild(this.roundPanel)
 
-    this.logText = label('', { fontSize: 12, fill: C.cocoaSoft, wordWrap: true, wordWrapWidth: 250, lineHeight: 16 })
-    this.hudLayer.addChild(this.logText)
+    this.logPanel = panel(266, 150, { alpha: 0.85, radius: 12 })
+    this.logText = label('', { fontSize: 13, fill: C.cocoaSoft, wordWrap: true, wordWrapWidth: 238, lineHeight: 19 })
+    this.hudLayer.addChild(this.logPanel, this.logText)
 
     const bbg = new Graphics()
     this.bannerText = new Text({ text: '', style: { fontFamily: FONT.body, fontSize: 16, fill: C.creamLight, fontWeight: '600', align: 'center' } })
@@ -138,7 +147,8 @@ export class GameScene implements Scene {
       p.position.set(pos.x - p.W / 2, pos.y - p.H / 2)
     }
     this.roundPanel.position.set(20, 20)
-    this.logText.position.set(w - 270, 20)
+    this.logPanel.position.set(w - 286, 20)
+    this.logText.position.set(w - 270, 30)
     this.menuBtn.position.set(w - 150, h - 56)
     this.layoutHand()
     this.layoutButtons()
@@ -210,13 +220,16 @@ export class GameScene implements Scene {
     cards.forEach((c, i) => {
       const s = this.handSprites.get(c.id)
       if (!s) return
+      const selected = this.selected.has(c.id)
+      const hovered = this.hoverId === c.id
+      const lift = selected ? 26 : hovered ? 14 : 0
       const tx = x0 + i * spacing
-      const ty = baseY - (this.selected.has(c.id) ? 26 : 0)
+      const ty = baseY - lift
       s.scale.set(scale)
-      s.zIndex = i
+      s.zIndex = i + (hovered ? 1000 : 0)
       if (animate) {
         this.app.tweens.kill(s)
-        void this.app.tweens.to(s, { x: tx, y: ty }, 220, { ease: ease.outCubic })
+        void this.app.tweens.to(s, { x: tx, y: ty }, hovered || selected ? 140 : 220, { ease: ease.outCubic })
       } else s.position.set(tx, ty)
     })
     this.handLayer.sortableChildren = true
@@ -254,6 +267,14 @@ export class GameScene implements Scene {
       s.eventMode = 'static'
       s.cursor = 'pointer'
       s.on('pointertap', () => this.toggleCard(c))
+      s.on('pointerover', () => {
+        this.hoverId = c.id
+        this.layoutHand()
+      })
+      s.on('pointerout', () => {
+        if (this.hoverId === c.id) this.hoverId = null
+        this.layoutHand()
+      })
       // Dealt cards slide up from below the table edge (layoutHand animates them into place).
       s.position.set(this.w / 2 + added * 6, this.h + 120)
       this.handSprites.set(c.id, s)
@@ -604,6 +625,9 @@ export class GameScene implements Scene {
   }
 
   private onKey = (e: KeyboardEvent): void => {
+    // Scene teardown is deferred to let the outgoing scene fade out (see App.go); until then,
+    // ignore shortcuts so a keypress during the crossfade can't act on a scene that's on its way out.
+    if (this.app.current !== this) return
     if (e.key === 'Enter') this.play()
     else if (e.key === ' ') {
       e.preventDefault()

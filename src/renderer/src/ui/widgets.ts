@@ -1,5 +1,5 @@
-import { Container, Graphics, Text, type TextStyleOptions } from 'pixi.js'
-import { C, FONT } from '../theme'
+import { Container, Graphics, Text, Ticker, type TextStyleOptions } from 'pixi.js'
+import { C, FONT, lerpColor } from '../theme'
 
 export interface ButtonOptions {
   width?: number
@@ -11,6 +11,7 @@ export interface ButtonOptions {
 
 /** A rounded, warm button with hover/press states. */
 export class Button extends Container {
+  private inner = new Container()
   private bg = new Graphics()
   private labelText: Text
   private w: number
@@ -19,6 +20,7 @@ export class Button extends Container {
   private enabled = true
   private hovered = false
   private pressed = false
+  private targetScale = 1
   onClick: (() => void) | undefined
 
   constructor(label: string, opts: ButtonOptions = {}) {
@@ -33,30 +35,50 @@ export class Button extends Container {
     })
     this.labelText.anchor.set(0.5)
     this.labelText.position.set(this.w / 2, this.h / 2)
-    this.addChild(this.bg, this.labelText)
+    this.inner.pivot.set(this.w / 2, this.h / 2)
+    this.inner.position.set(this.w / 2, this.h / 2)
+    this.inner.addChild(this.bg, this.labelText)
+    this.addChild(this.inner)
     this.eventMode = 'static'
     this.cursor = 'pointer'
     this.on('pointerover', () => {
       this.hovered = true
+      this.targetScale = this.enabled ? 1.035 : 1
       this.draw()
     })
     this.on('pointerout', () => {
       this.hovered = false
       this.pressed = false
+      this.targetScale = 1
       this.draw()
     })
     this.on('pointerdown', () => {
       this.pressed = true
+      this.targetScale = this.enabled ? 0.965 : 1
       this.draw()
     })
     this.on('pointerup', () => {
       this.pressed = false
+      this.targetScale = this.hovered && this.enabled ? 1.035 : 1
+      this.draw()
+    })
+    this.on('pointerupoutside', () => {
+      this.pressed = false
+      this.targetScale = 1
       this.draw()
     })
     this.on('pointertap', () => {
       if (this.enabled) this.onClick?.()
     })
+    Ticker.shared.add(this.tick)
     this.draw()
+  }
+
+  /** Eases the press/hover scale toward its target each frame — cheap "juice" with no per-button tween bookkeeping. */
+  private tick = (): void => {
+    const s = this.inner.scale.x
+    const next = s + (this.targetScale - s) * 0.35
+    this.inner.scale.set(Math.abs(next - this.targetScale) < 0.001 ? this.targetScale : next)
   }
 
   private textColor(): number {
@@ -111,6 +133,11 @@ export class Button extends Container {
     this.labelText.y = this.h / 2 + y
     this.alpha = this.enabled ? 1 : 0.45
   }
+
+  override destroy(options?: Parameters<Container['destroy']>[0]): void {
+    Ticker.shared.remove(this.tick)
+    super.destroy(options)
+  }
 }
 
 /** A soft panel with a parchment fill. */
@@ -144,9 +171,11 @@ export function heading(text: string, size = 28): Text {
   return t
 }
 
-/** A pill-shaped toggle switch. */
+/** A pill-shaped toggle switch with an easing knob and track-color crossfade. */
 export class Toggle extends Container {
-  private g = new Graphics()
+  private track = new Graphics()
+  private knob = new Graphics()
+  private knobX: number
   value: boolean
   onChange: ((v: boolean) => void) | undefined
 
@@ -154,27 +183,38 @@ export class Toggle extends Container {
     super()
     this.value = value
     this.onChange = onChange
-    this.addChild(this.g)
+    this.knobX = value ? 38 : 14
+    this.addChild(this.track, this.knob)
     this.eventMode = 'static'
     this.cursor = 'pointer'
     this.on('pointertap', () => {
       this.value = !this.value
-      this.draw()
       this.onChange?.(this.value)
     })
-    this.draw()
+    Ticker.shared.add(this.tick)
+    this.redraw()
   }
 
   set(v: boolean): void {
     this.value = v
-    this.draw()
   }
 
-  private draw(): void {
-    const g = this.g
-    g.clear()
-    g.roundRect(0, 0, 52, 28, 14).fill(this.value ? C.sageDark : C.sand)
-    g.circle(this.value ? 38 : 14, 14, 10).fill(C.creamLight)
+  private tick = (): void => {
+    const target = this.value ? 38 : 14
+    const dx = target - this.knobX
+    this.knobX = Math.abs(dx) < 0.05 ? target : this.knobX + dx * 0.3
+    this.redraw()
+  }
+
+  private redraw(): void {
+    const t = (this.knobX - 14) / 24
+    this.track.clear().roundRect(0, 0, 52, 28, 14).fill(lerpColor(C.sand, C.sageDark, t))
+    this.knob.clear().circle(this.knobX, 14, 10).fill(C.creamLight)
+  }
+
+  override destroy(options?: Parameters<Container['destroy']>[0]): void {
+    Ticker.shared.remove(this.tick)
+    super.destroy(options)
   }
 }
 
@@ -182,6 +222,9 @@ export class Toggle extends Container {
 export class Cycler<T extends string | number> extends Container {
   private valueText: Text
   private index: number
+  private midX: number
+  private animT = 1
+  private animDir = 0
   onChange: ((v: T) => void) | undefined
 
   constructor(
@@ -192,6 +235,7 @@ export class Cycler<T extends string | number> extends Container {
   ) {
     super()
     this.onChange = onChange
+    this.midX = width / 2
     this.index = Math.max(
       0,
       choices.findIndex((c) => c.value === value)
@@ -205,7 +249,7 @@ export class Cycler<T extends string | number> extends Container {
     right.position.set(width - 18, 16)
     this.valueText = new Text({ text: '', style: { fontFamily: FONT.body, fontSize: 15, fill: C.cocoa } })
     this.valueText.anchor.set(0.5)
-    this.valueText.position.set(width / 2, 17)
+    this.valueText.position.set(this.midX, 17)
     this.addChild(bg, left, right, this.valueText)
     const hit = (t: Text, dir: number): void => {
       t.eventMode = 'static'
@@ -215,11 +259,14 @@ export class Cycler<T extends string | number> extends Container {
     }
     hit(left, -1)
     hit(right, 1)
+    Ticker.shared.add(this.tick)
     this.refresh()
   }
 
   private step(dir: number): void {
     this.index = (this.index + dir + this.choices.length) % this.choices.length
+    this.animDir = dir
+    this.animT = 0
     this.refresh()
     this.onChange?.(this.choices[this.index].value)
   }
@@ -228,6 +275,20 @@ export class Cycler<T extends string | number> extends Container {
     const i = this.choices.findIndex((c) => c.value === value)
     if (i >= 0) this.index = i
     this.refresh()
+  }
+
+  /** A quick punch-in for the value label on each step — cheap arcade-y feedback. */
+  private tick = (): void => {
+    if (this.animT >= 1) return
+    this.animT = Math.min(1, this.animT + 0.15)
+    const e = 1 - Math.pow(1 - this.animT, 3)
+    this.valueText.x = this.midX + this.animDir * -8 * (1 - e)
+    this.valueText.alpha = 0.35 + 0.65 * e
+  }
+
+  override destroy(options?: Parameters<Container['destroy']>[0]): void {
+    Ticker.shared.remove(this.tick)
+    super.destroy(options)
   }
 
   private refresh(): void {

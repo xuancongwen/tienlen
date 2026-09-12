@@ -5,6 +5,7 @@ import type { App, Scene } from '../app'
 import { Backdrop } from '../gfx/backdrop'
 import { C } from '../theme'
 import { createInput, type DomInput } from '../ui/dom'
+import { riseIn } from '../ui/tween'
 import { Button, Cycler, ScrollBox, Toggle, heading, label, panel } from '../ui/widgets'
 import { MenuScene } from './MenuScene'
 
@@ -25,6 +26,7 @@ export class RulesScene implements Scene {
   private panelBg: Container | null = null
   private w = 0
   private h = 0
+  private entered = false
 
   constructor(
     private app: App,
@@ -47,7 +49,7 @@ export class RulesScene implements Scene {
 
   private buildList(): void {
     const c = this.scroll.content
-    c.removeChildren()
+    for (const child of c.removeChildren()) child.destroy({ children: true })
     this.controls = []
     let y = 0
     const readOnly = !!this.opts.readOnly
@@ -172,6 +174,10 @@ export class RulesScene implements Scene {
         })
       }
       this.nameInput.setPosition(this.card.x + 30 + 380, this.card.y + 80 + 0, 300)
+    }
+    if (!this.entered) {
+      this.entered = true
+      riseIn(this.app.tweens, this.card)
     }
   }
 

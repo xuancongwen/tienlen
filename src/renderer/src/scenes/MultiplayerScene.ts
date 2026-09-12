@@ -3,6 +3,7 @@ import type { App, Scene } from '../app'
 import { Backdrop } from '../gfx/backdrop'
 import { C } from '../theme'
 import { createInput, type DomInput } from '../ui/dom'
+import { riseIn } from '../ui/tween'
 import { Button, heading, label, panel } from '../ui/widgets'
 import { createLanHost, createSteamHost, joinLan, joinSteam, type Session } from '../session'
 import { LobbyScene } from './LobbyScene'
@@ -22,6 +23,8 @@ export class MultiplayerScene implements Scene {
   private busy = false
   private steamOk = false
   private unsubJoin: (() => void) | null = null
+  private entered = false
+  private ph = 0
 
   constructor(private app: App) {
     this.view.addChild(this.backdrop, this.card)
@@ -100,7 +103,7 @@ export class MultiplayerScene implements Scene {
   private async refreshLobbies(): Promise<void> {
     if (!window.gd || !this.steamOk) return
     const lobbies = await window.gd.steam.listLobbies()
-    this.lobbyList.removeChildren()
+    for (const c of this.lobbyList.removeChildren()) c.destroy({ children: true })
     if (lobbies.length === 0) {
       this.lobbyList.addChild(label('No open Tiến lên lobbies among your friends right now.', { fontSize: 13, fill: C.muted }))
       return
@@ -134,6 +137,7 @@ export class MultiplayerScene implements Scene {
     this.backdrop.resize(w, h)
     const pw = Math.min(760, w - 40)
     const ph = Math.min(560, h - 60)
+    this.ph = ph
     this.bg?.destroy()
     this.bg = panel(pw, ph)
     this.card.addChildAt(this.bg, 0)
@@ -145,11 +149,24 @@ export class MultiplayerScene implements Scene {
     b.steamList.position.set(30, 228)
     this.lobbyList.position.set(30, 290)
     b.steamJoin.position.set(30, ph - 130)
-    this.lobbyInput.setPosition(this.card.x + 30, this.card.y + ph - 172, 240)
     b.lanHost.position.set(400, 170)
     b.lanJoin.position.set(400, ph - 130)
-    this.lanInput.setPosition(this.card.x + 400, this.card.y + ph - 172, 240)
     b.back.position.set(pw - 160, ph - 64)
+    this.syncInputs()
+    if (!this.entered) {
+      this.entered = true
+      riseIn(this.app.tweens, this.card)
+    }
+  }
+
+  /** Keeps the native DOM inputs glued to the card while it eases into place. */
+  update(): void {
+    this.syncInputs()
+  }
+
+  private syncInputs(): void {
+    this.lobbyInput.setPosition(this.card.x + 30, this.card.y + this.ph - 172, 240)
+    this.lanInput.setPosition(this.card.x + 400, this.card.y + this.ph - 172, 240)
   }
 
   destroy(): void {

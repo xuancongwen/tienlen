@@ -14,7 +14,9 @@ export const C = {
   woodDark: 0x52301d,
   cocoa: 0x3a2a1f,
   cocoaSoft: 0x6c4d3c,
-  muted: 0x9c806c,
+  // Darkened from the original 0x9c806c: that shade only hit ~3.1:1 contrast against the cream
+  // backgrounds it sits on, failing WCAG AA for normal-size text. This keeps the same warm hue.
+  muted: 0x745e4e,
   paprika: 0xc9452a,
   paprikaDark: 0x9a321d,
   gold: 0xd9a63f,
@@ -47,4 +49,19 @@ export const CARD = {
 
 export function hex(c: number): string {
   return '#' + c.toString(16).padStart(6, '0')
+}
+
+/** Linear-interpolates two 0xRRGGBB colors; used to ease color swaps (toggle track, hover tints) instead of snapping. */
+export function lerpColor(a: number, b: number, t: number): number {
+  const k = Math.max(0, Math.min(1, t))
+  const ar = (a >> 16) & 0xff,
+    ag = (a >> 8) & 0xff,
+    ab = a & 0xff
+  const br = (b >> 16) & 0xff,
+    bg = (b >> 8) & 0xff,
+    bb = b & 0xff
+  const r = Math.round(ar + (br - ar) * k)
+  const g = Math.round(ag + (bg - ag) * k)
+  const bl = Math.round(ab + (bb - ab) * k)
+  return (r << 16) | (g << 8) | bl
 }

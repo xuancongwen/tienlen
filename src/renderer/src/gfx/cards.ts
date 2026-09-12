@@ -59,7 +59,17 @@ export class CardSprite extends Container {
     const suitBig = new Text({ text: suitSymbol(c.suit), style: { fontFamily: FONT.card, fontSize: 42, fill: ink } })
     suitBig.anchor.set(0.5)
     suitBig.position.set(CARD.w / 2 + 6, CARD.h / 2 + 12)
-    this.addChild(rank, suitSmall, suitBig)
+    // A second, upside-down index in the opposite corner — standard on real cards so the
+    // rank/suit stays legible when a hand is fanned tight or a card sits rotated on the table.
+    const corner2 = new Container()
+    corner2.position.set(CARD.w, CARD.h)
+    corner2.rotation = Math.PI
+    const rank2 = new Text({ text: rankLabel(c.rank), style: { fontFamily: FONT.card, fontSize: 21, fill: ink, fontWeight: 'bold' } })
+    rank2.position.set(6, 4)
+    const suit2 = new Text({ text: suitSymbol(c.suit), style: { fontFamily: FONT.card, fontSize: 16, fill: ink } })
+    suit2.position.set(7, 27)
+    corner2.addChild(rank2, suit2)
+    this.addChild(rank, suitSmall, suitBig, corner2)
   }
 
   private drawBack(): void {
