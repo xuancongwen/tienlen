@@ -173,7 +173,7 @@ export class RulesScene implements Scene {
           }
         })
       }
-      this.nameInput.setPosition(this.card.x + 30 + 380, this.card.y + 80 + 0, 300)
+      this.nameInput.setPosition(this.card.x + 30 + 380, this.card.y + 80 + 0, 300, this.app.uiScale)
     }
     if (!this.entered) {
       this.entered = true
@@ -187,7 +187,7 @@ export class RulesScene implements Scene {
       const y = this.card.y + 80 + this.scroll.content.y
       const visible = y >= this.card.y + 70 && y <= this.card.y + this.h - 200
       this.nameInput.el.style.display = visible ? '' : 'none'
-      this.nameInput.setPosition(this.card.x + 30 + 380, y, 300)
+      this.nameInput.setPosition(this.card.x + 30 + 380, y, 300, this.app.uiScale)
     }
   }
 

@@ -5,9 +5,13 @@
  */
 export interface DomInput {
   el: HTMLInputElement
-  setPosition(x: number, y: number, w: number): void
+  /** x, y, w are in the scene's logical coordinates; scale converts them (and the input's own size) to real CSS pixels. */
+  setPosition(x: number, y: number, w: number, scale?: number): void
   destroy(): void
 }
+
+const BASE_HEIGHT = 34
+const BASE_FONT = 15
 
 export function createInput(opts: { value?: string; placeholder?: string; onChange?: (v: string) => void; onEnter?: () => void }): DomInput {
   const el = document.createElement('input')
@@ -41,10 +45,12 @@ export function createInput(opts: { value?: string; placeholder?: string; onChan
   document.body.appendChild(el)
   return {
     el,
-    setPosition(x, y, w) {
-      el.style.left = `${x}px`
-      el.style.top = `${y}px`
-      el.style.width = `${w}px`
+    setPosition(x, y, w, scale = 1) {
+      el.style.left = `${x * scale}px`
+      el.style.top = `${y * scale}px`
+      el.style.width = `${w * scale}px`
+      el.style.height = `${BASE_HEIGHT * scale}px`
+      el.style.fontSize = `${BASE_FONT * scale}px`
     },
     destroy() {
       el.remove()

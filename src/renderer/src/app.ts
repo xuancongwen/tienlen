@@ -13,6 +13,14 @@ export interface Scene {
   destroy(): void
 }
 
+// Every scene's layout math is hand-tuned against this logical resolution — it matches the
+// desktop app's default (and minimum-friendly) window size. Below this, the whole root is
+// scaled down uniformly (see `layout()`) so smaller windows, tablets and phones get a shrunk
+// but never clipped/overlapping copy of the same layout instead of a redesign per breakpoint.
+const REF_W = 1280
+const REF_H = 800
+const MIN_SCALE = 0.2
+
 /**
  * Owns the Pixi Application, the active scene, shared tweens, the toast and
  * the persisted settings. Scenes get a reference to this to switch around.
@@ -24,6 +32,9 @@ export class App {
   private scene: Scene | null = null
   private root = new Container()
   private overlay = new Container()
+  private logicalW = REF_W
+  private logicalH = REF_H
+  private scale = 1
   session: Session | null = null
 
   constructor(
@@ -41,11 +52,17 @@ export class App {
     this.layout()
   }
 
+  /** Logical width scenes lay out against — equals the real screen width once it's >= REF_W. */
   get width(): number {
-    return this.pixi.screen.width
+    return this.logicalW
   }
+  /** Logical height scenes lay out against — equals the real screen height once it's >= REF_H. */
   get height(): number {
-    return this.pixi.screen.height
+    return this.logicalH
+  }
+  /** Factor the logical UI is rendered at on the real screen; use to convert logical coords (e.g. for DOM overlays) to real pixels. */
+  get uiScale(): number {
+    return this.scale
   }
 
   /** The scene currently navigated to — lets an outgoing scene tell it's mid-fade-out and ignore stray input (e.g. a global keydown listener) until its deferred destroy() runs. */
@@ -73,8 +90,15 @@ export class App {
   }
 
   layout(): void {
-    this.scene?.resize(this.width, this.height)
-    this.toast.position.set(20, this.height - 20)
+    const realW = this.pixi.screen.width
+    const realH = this.pixi.screen.height
+    this.scale = Math.min(1, Math.max(MIN_SCALE, Math.min(realW / REF_W, realH / REF_H)))
+    this.logicalW = realW / this.scale
+    this.logicalH = realH / this.scale
+    this.root.scale.set(this.scale)
+    this.scene?.resize(this.logicalW, this.logicalH)
+    // The toast lives outside `root`, unscaled, so it stays crisp and reads against real screen pixels.
+    this.toast.position.set(20, realH - 20)
     this.toast.pivot.set(0, this.toast.height)
   }
 

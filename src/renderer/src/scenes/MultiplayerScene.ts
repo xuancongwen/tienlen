@@ -165,8 +165,9 @@ export class MultiplayerScene implements Scene {
   }
 
   private syncInputs(): void {
-    this.lobbyInput.setPosition(this.card.x + 30, this.card.y + this.ph - 172, 240)
-    this.lanInput.setPosition(this.card.x + 400, this.card.y + this.ph - 172, 240)
+    const s = this.app.uiScale
+    this.lobbyInput.setPosition(this.card.x + 30, this.card.y + this.ph - 172, 240, s)
+    this.lanInput.setPosition(this.card.x + 400, this.card.y + this.ph - 172, 240, s)
   }
 
   destroy(): void {
